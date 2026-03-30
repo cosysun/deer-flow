@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from deerflow.agents.middlewares.memory_middleware import MemoryMiddleware
 from deerflow.config.memory_config import MemoryConfig
 
@@ -35,9 +33,7 @@ class TestMemoryMiddlewareUserIdExtraction:
         mock_queue = MagicMock()
 
         with patch("deerflow.agents.middlewares.memory_middleware.get_memory_config", return_value=_enabled_config()):
-            with patch("deerflow.agents.middlewares.memory_middleware.get_config", return_value={
-                "configurable": {"thread_id": "t1", "user_id": "user-abc"}
-            }):
+            with patch("deerflow.agents.middlewares.memory_middleware.get_config", return_value={"configurable": {"thread_id": "t1", "user_id": "user-abc"}}):
                 with patch("deerflow.agents.middlewares.memory_middleware.get_memory_queue", return_value=mock_queue):
                     middleware = MemoryMiddleware()
                     middleware.after_agent(state, runtime)
@@ -55,9 +51,7 @@ class TestMemoryMiddlewareUserIdExtraction:
         mock_queue = MagicMock()
 
         with patch("deerflow.agents.middlewares.memory_middleware.get_memory_config", return_value=_enabled_config()):
-            with patch("deerflow.agents.middlewares.memory_middleware.get_config", return_value={
-                "configurable": {"thread_id": "t1"}
-            }):
+            with patch("deerflow.agents.middlewares.memory_middleware.get_config", return_value={"configurable": {"thread_id": "t1"}}):
                 with patch("deerflow.agents.middlewares.memory_middleware.get_memory_queue", return_value=mock_queue):
                     middleware = MemoryMiddleware()
                     middleware.after_agent(state, runtime)
@@ -73,9 +67,7 @@ class TestMemoryMiddlewareUserIdExtraction:
         mock_queue = MagicMock()
 
         with patch("deerflow.agents.middlewares.memory_middleware.get_memory_config", return_value=_enabled_config()):
-            with patch("deerflow.agents.middlewares.memory_middleware.get_config", return_value={
-                "configurable": {"thread_id": "t1", "user_id": "configurable-user"}
-            }):
+            with patch("deerflow.agents.middlewares.memory_middleware.get_config", return_value={"configurable": {"thread_id": "t1", "user_id": "configurable-user"}}):
                 with patch("deerflow.agents.middlewares.memory_middleware.get_memory_queue", return_value=mock_queue):
                     middleware = MemoryMiddleware()
                     middleware.after_agent(state, runtime)

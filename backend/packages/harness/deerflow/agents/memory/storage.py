@@ -57,7 +57,7 @@ class MemoryStorage(abc.ABC):
 class FileMemoryStorage(MemoryStorage):
     """File-based memory storage provider."""
 
-    _USER_ID_INVALID_CHARS = re.compile(r'[/\\]|\.\.')
+    _USER_ID_INVALID_CHARS = re.compile(r"[/\\]|\.\.")
 
     def __init__(self):
         """Initialize the file memory storage."""
