@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦌 DeerFlow 2.0 Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Roboto, sans-serif;
+    background: #0a0e27;
+    color: #e0e6ff;
+    min-height: 100vh;
+    padding: 40px 20px 60px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* ── Title ── */
+  .title {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .title h1 {
+    font-size: 36px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .title p {
+    font-size: 15px;
+    color: #7b8ab8;
+    letter-spacing: 2px;
+  }
+
+  /* ── Layer ── */
+  .layer {
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .layer-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #5b6a9a;
+    margin-bottom: 10px;
+    padding-left: 4px;
+  }
+
+  /* ── Arrows between layers ── */
+  .arrow-row {
+    display: flex;
+    justify-content: center;
+    margin: 6px 0;
+    gap: 4px;
+  }
+  .arrow-row .arrow {
+    color: #3b4a7a;
+    font-size: 18px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: linear-gradient(135deg, #131836 0%, #1a1f45 100%);
+    border: 1px solid #252d5a;
+    border-radius: 14px;
+    padding: 20px 24px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #4f6df5, transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .card:hover {
+    border-color: #3a4680;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(79, 109, 245, 0.12);
+  }
+  .card:hover::before { opacity: 1; }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-subtitle {
+    font-size: 11px;
+    color: #6b78a8;
+    margin-bottom: 12px;
+  }
+
+  /* ── Tag / Pill ── */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: rgba(79, 109, 245, 0.1);
+    border: 1px solid rgba(79, 109, 245, 0.2);
+    color: #8fa4e6;
+    white-space: nowrap;
+  }
+
+  /* ── Color variants ── */
+  .tag.teal   { background: rgba(45,212,191,0.1); border-color: rgba(45,212,191,0.25); color: #5eead4; }
+  .tag.purple { background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.25); color: #c4b5fd; }
+  .tag.pink   { background: rgba(244,114,182,0.1); border-color: rgba(244,114,182,0.25); color: #f9a8d4; }
+  .tag.amber  { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25); color: #fcd34d; }
+  .tag.green  { background: rgba(74,222,128,0.1); border-color: rgba(74,222,128,0.25); color: #86efac; }
+  .tag.rose   { background: rgba(251,113,133,0.1); border-color: rgba(251,113,133,0.25); color: #fda4af; }
+
+  .accent-blue   { color: #60a5fa; }
+  .accent-teal   { color: #2dd4bf; }
+  .accent-purple { color: #a78bfa; }
+  .accent-pink   { color: #f472b6; }
+  .accent-amber  { color: #fbbf24; }
+  .accent-green  { color: #4ade80; }
+
+  /* ── Grids ── */
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+  /* ── User Entry Row ── */
+  .entry-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .entry-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #131836 0%, #1a1f45 100%);
+    border: 1px solid #252d5a;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+  .entry-item:hover {
+    border-color: #3a4680;
+    transform: translateY(-1px);
+  }
+  .entry-icon {
+    font-size: 20px;
+  }
+
+  /* ── Nginx Box ── */
+  .nginx-box {
+    background: linear-gradient(135deg, #0f1535 0%, #161c48 100%);
+    border: 1px solid #2a3468;
+    border-radius: 14px;
+    padding: 24px 28px;
+  }
+  .nginx-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .route-table {
+    display: grid;
+    grid-template-columns: auto 30px auto;
+    gap: 8px 12px;
+    align-items: center;
+    font-size: 13px;
+  }
+  .route-path {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #60a5fa;
+    background: rgba(96,165,250,0.08);
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-align: right;
+    font-size: 12px;
+  }
+  .route-arrow {
+    color: #4a5580;
+    text-align: center;
+  }
+  .route-target {
+    color: #c4ccee;
+  }
+  .route-target span {
+    color: #5b6a9a;
+    font-size: 11px;
+  }
+
+  /* ── Harness wide card ── */
+  .harness-box {
+    background: linear-gradient(135deg, #0d1130 0%, #151a42 100%);
+    border: 1px solid #252d5a;
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+  }
+  .harness-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #4f6df5, #a78bfa, #f472b6, #4f6df5);
+    border-radius: 16px 16px 0 0;
+  }
+  .harness-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .harness-subtitle {
+    font-size: 12px;
+    color: #5b6a9a;
+    margin-bottom: 20px;
+  }
+
+  /* ── Module mini-card ── */
+  .module {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid #1e2550;
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: all 0.25s;
+  }
+  .module:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: #2e3666;
+  }
+  .module-name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .module-items {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .module-item {
+    font-size: 11px;
+    color: #7b8ab8;
+    padding-left: 10px;
+    position: relative;
+  }
+  .module-item::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: #4a5580;
+  }
+
+  /* ── Middleware Chain ── */
+  .mw-chain {
+    background: linear-gradient(135deg, #0d1130 0%, #151a42 100%);
+    border: 1px solid #252d5a;
+    border-radius: 14px;
+    padding: 24px 28px;
+  }
+  .mw-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mw-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .mw-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid #1e2550;
+    transition: all 0.2s;
+  }
+  .mw-item:hover {
+    background: rgba(79,109,245,0.06);
+    border-color: #2e3666;
+  }
+  .mw-num {
+    font-size: 10px;
+    font-weight: 700;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    background: rgba(79,109,245,0.15);
+    color: #7b9cf5;
+    flex-shrink: 0;
+  }
+  .mw-name {
+    color: #a0aed4;
+    line-height: 1.3;
+  }
+
+  /* ── External Resources ── */
+  .ext-card {
+    background: linear-gradient(135deg, #0e1230 0%, #141940 100%);
+    border: 1px solid #1e2550;
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .ext-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ext-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+    .mw-grid { grid-template-columns: repeat(2, 1fr); }
+    .route-table { font-size: 11px; }
+  }
+  @media (max-width: 600px) {
+    .grid-3, .grid-4, .grid-2 { grid-template-columns: 1fr; }
+    .mw-grid { grid-template-columns: 1fr; }
+    body { padding: 20px 12px; }
+  }
+
+  /* ── Message Flow Line ── */
+  .flow-line {
+    text-align: center;
+    padding: 4px 0;
+  }
+  .flow-line svg {
+    width: 2px;
+    height: 24px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Title -->
+  <div class="title">
+    <h1>🦌 DeerFlow 2.0 Architecture</h1>
+    <p>SUPER AGENT HARNESS — BUILT BY BYTEDANCE</p>
+  </div>
+
+  <!-- Layer 1: User Entry -->
+  <div class="layer">
+    <div class="layer-label">User Interface — 用户接入层</div>
+    <div class="entry-row">
+      <div class="entry-item">
+        <span class="entry-icon">🌐</span>
+        <div>
+          <div>Browser</div>
+          <div style="font-size:11px;color:#5b6a9a;font-weight:400">Chat UI · localhost:2026</div>
+        </div>
+      </div>
+      <div class="entry-item">
+        <span class="entry-icon">✈️</span>
+        <div>
+          <div>Telegram</div>
+          <div style="font-size:11px;color:#5b6a9a;font-weight:400">Bot API · Long Polling</div>
+        </div>
+      </div>
+      <div class="entry-item">
+        <span class="entry-icon">💬</span>
+        <div>
+          <div>Slack</div>
+          <div style="font-size:11px;color:#5b6a9a;font-weight:400">Socket Mode</div>
+        </div>
+      </div>
+      <div class="entry-item">
+        <span class="entry-icon">🐦</span>
+        <div>
+          <div>Feishu / Lark</div>
+          <div style="font-size:11px;color:#5b6a9a;font-weight:400">WebSocket</div>
+        </div>
+      </div>
+      <div class="entry-item">
+        <span class="entry-icon">🐍</span>
+        <div>
+          <div>Python Client</div>
+          <div style="font-size:11px;color:#5b6a9a;font-weight:400">Embedded · In-Process</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row">
+    <span class="arrow">▼</span><span class="arrow">▼</span><span class="arrow">▼</span>
+  </div>
+
+  <!-- Layer 2: Nginx -->
+  <div class="layer">
+    <div class="layer-label">Reverse Proxy — 反向代理</div>
+    <div class="nginx-box">
+      <div class="nginx-title">
+        <span class="accent-green">⬡</span> Nginx <span style="font-size:12px;color:#5b6a9a;font-weight:400">port 2026 · 统一入口 · SSE 透传 · CORS</span>
+      </div>
+      <div class="route-table">
+        <div class="route-path">/api/langgraph/*</div>
+        <div class="route-arrow">→</div>
+        <div class="route-target">LangGraph Server <span>(port 2024)</span></div>
+
+        <div class="route-path">/api/*</div>
+        <div class="route-arrow">→</div>
+        <div class="route-target">Gateway API <span>(port 8001)</span></div>
+
+        <div class="route-path">/* (其他)</div>
+        <div class="route-arrow">→</div>
+        <div class="route-target">Frontend <span>(port 3000)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row">
+    <span class="arrow">▼</span><span class="arrow" style="margin:0 80px">▼</span><span class="arrow">▼</span>
+  </div>
+
+  <!-- Layer 3: Three Services -->
+  <div class="layer">
+    <div class="layer-label">Services — 三大服务</div>
+    <div class="grid-3">
+
+      <!-- Frontend -->
+      <div class="card">
+        <div class="card-title"><span class="accent-blue">◆</span> Frontend</div>
+        <div class="card-subtitle">port 3000 · Next.js 16 · React 19 · TypeScript 5.8</div>
+        <div class="tags">
+          <span class="tag">Chat UI</span>
+          <span class="tag">SSE Streaming</span>
+          <span class="tag">useThreadStream()</span>
+          <span class="tag">LangGraph SDK</span>
+          <span class="tag">Artifacts 渲染</span>
+          <span class="tag">Markdown</span>
+        </div>
+      </div>
+
+      <!-- LangGraph Server -->
+      <div class="card" style="border-color:#3344aa;">
+        <div class="card-title"><span class="accent-purple">◆</span> LangGraph Server</div>
+        <div class="card-subtitle">port 2024 · Python · LangGraph · Agent 运行时</div>
+        <div class="tags">
+          <span class="tag purple">Lead Agent</span>
+          <span class="tag purple">12 Middlewares</span>
+          <span class="tag purple">Sub-Agents ×3</span>
+          <span class="tag purple">Tools 执行</span>
+          <span class="tag purple">SSE 事件流</span>
+          <span class="tag purple">Thread 状态管理</span>
+        </div>
+      </div>
+
+      <!-- Gateway API -->
+      <div class="card">
+        <div class="card-title"><span class="accent-teal">◆</span> Gateway API</div>
+        <div class="card-subtitle">port 8001 · Python · FastAPI · REST 管理服务</div>
+        <div class="tags">
+          <span class="tag teal">Models API</span>
+          <span class="tag teal">Skills API</span>
+          <span class="tag teal">Memory API</span>
+          <span class="tag teal">MCP Config</span>
+          <span class="tag teal">Uploads</span>
+          <span class="tag teal">Threads</span>
+          <span class="tag teal">Artifacts</span>
+          <span class="tag teal">Suggestions</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="arrow-row">
+    <span class="arrow">▼</span><span class="arrow">▼</span>
+  </div>
+
+  <!-- Layer 4: Harness Core -->
+  <div class="layer">
+    <div class="layer-label">Harness Core — 核心引擎层</div>
+    <div class="harness-box">
+      <div class="harness-title">📦 deerflow-harness</div>
+      <div class="harness-subtitle">可独立发布的 Python 包 · LangGraph Server 与 Gateway API 共享导入 · 严格单向依赖（harness ❌→ app）</div>
+
+      <div class="grid-4" style="margin-bottom: 10px;">
+        <div class="module">
+          <div class="module-name"><span class="accent-purple">●</span> Agent 系统</div>
+          <div class="module-items">
+            <div class="module-item">Lead Agent 主 Agent</div>
+            <div class="module-item">12 层 Middleware Chain</div>
+            <div class="module-item">System Prompt 组装</div>
+            <div class="module-item">ThreadState 状态管理</div>
+          </div>
+        </div>
+        <div class="module">
+          <div class="module-name"><span class="accent-teal">●</span> Sandbox 系统</div>
+          <div class="module-items">
+            <div class="module-item">Local 本地执行</div>
+            <div class="module-item">Docker 容器隔离</div>
+            <div class="module-item">K8s Provisioner</div>
+            <div class="module-item">虚拟路径映射</div>
+          </div>
+        </div>
+        <div class="module">
+          <div class="module-name"><span class="accent-pink">●</span> Memory 系统</div>
+          <div class="module-items">
+            <div class="module-item">LLM 事实提取</div>
+            <div class="module-item">去重 + 防抖队列</div>
+            <div class="module-item">JSON 原子写入</div>
+            <div class="module-item">Prompt 注入 (Top 15)</div>
+          </div>
+        </div>
+        <div class="module">
+          <div class="module-name"><span class="accent-amber">●</span> Skills 系统</div>
+          <div class="module-items">
+            <div class="module-item">渐进式按需加载</div>
+            <div class="module-item">SKILL.md 定义</div>
+            <div class="module-item">Public + Custom</div>
+            <div class="module-item">.skill 安装归档</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-4">
+        <div class="module">
+          <div class="module-name"><span class="accent-blue">●</span> Model 工厂</div>
+          <div class="module-items">
+            <div class="module-item">多 LLM Provider</div>
+            <div class="module-item">Thinking 推理模式</div>
+            <div class="module-item">Vision 视觉模型</div>
+            <div class="module-item">Responses API</div>
+          </div>
+        </div>
+        <div class="module">
+          <div class="module-name"><span class="accent-green">●</span> MCP 集成</div>
+          <div class="module-items">
+            <div class="module-item">多服务器管理</div>
+            <div class="module-item">stdio / SSE / HTTP</div>
+            <div class="module-item">OAuth Token 流</div>
+            <div class="module-item">缓存 + mtime 失效</div>
+          </div>
+        </div>
+        <div class="module">
+          <div class="module-name"><span class="accent-purple">●</span> SubAgent 系统</div>
+          <div class="module-items">
+            <div class="module-item">task() 任务委派</div>
+            <div class="module-item">双线程池并行</div>
+            <div class="module-item">最多 3 并发</div>
+            <div class="module-item">15 分钟超时</div>
+          </div>
+        </div>
+        <div class="module">
+          <div class="module-name"><span class="accent-teal">●</span> Tools 工具集</div>
+          <div class="module-items">
+            <div class="module-item">bash · read/write file</div>
+            <div class="module-item">web_search · web_fetch</div>
+            <div class="module-item">present_files · ls</div>
+            <div class="module-item">view_image · ask_clarify</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row">
+    <span class="arrow">▼</span><span class="arrow">▼</span><span class="arrow">▼</span>
+  </div>
+
+  <!-- Layer 5: Middleware Chain Detail -->
+  <div class="layer">
+    <div class="layer-label">Middleware Chain — 中间件执行链（严格有序）</div>
+    <div class="mw-chain">
+      <div class="mw-title"><span class="accent-purple">⚡</span> 12 层中间件 · 每次 LLM 调用前后依次执行</div>
+      <div class="mw-grid">
+        <div class="mw-item"><span class="mw-num">1</span><span class="mw-name">ThreadData<br><span style="color:#5b6a9a">创建线程目录</span></span></div>
+        <div class="mw-item"><span class="mw-num">2</span><span class="mw-name">Uploads<br><span style="color:#5b6a9a">注入上传文件</span></span></div>
+        <div class="mw-item"><span class="mw-num">3</span><span class="mw-name">Sandbox<br><span style="color:#5b6a9a">获取执行环境</span></span></div>
+        <div class="mw-item"><span class="mw-num">4</span><span class="mw-name">DanglingToolCall<br><span style="color:#5b6a9a">修补中断调用</span></span></div>
+        <div class="mw-item"><span class="mw-num">5</span><span class="mw-name">Guardrail<br><span style="color:#5b6a9a">工具授权检查</span></span></div>
+        <div class="mw-item"><span class="mw-num">6</span><span class="mw-name">Summarization<br><span style="color:#5b6a9a">上下文摘要</span></span></div>
+        <div class="mw-item"><span class="mw-num">7</span><span class="mw-name">TodoList<br><span style="color:#5b6a9a">Plan 模式任务</span></span></div>
+        <div class="mw-item"><span class="mw-num">8</span><span class="mw-name">Title<br><span style="color:#5b6a9a">自动生成标题</span></span></div>
+        <div class="mw-item"><span class="mw-num">9</span><span class="mw-name">Memory<br><span style="color:#5b6a9a">记忆提取队列</span></span></div>
+        <div class="mw-item"><span class="mw-num">10</span><span class="mw-name">ViewImage<br><span style="color:#5b6a9a">图片 Base64</span></span></div>
+        <div class="mw-item"><span class="mw-num">11</span><span class="mw-name">SubagentLimit<br><span style="color:#5b6a9a">并发上限 = 3</span></span></div>
+        <div class="mw-item"><span class="mw-num">12</span><span class="mw-name">Clarification<br><span style="color:#5b6a9a">拦截澄清请求</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row">
+    <span class="arrow">▼</span><span class="arrow">▼</span><span class="arrow">▼</span>
+  </div>
+
+  <!-- Layer 6: External Resources -->
+  <div class="layer">
+    <div class="layer-label">External Resources — 外部资源层</div>
+    <div class="grid-3">
+
+      <div class="ext-card">
+        <div class="ext-title"><span class="accent-teal">🐳</span> Sandbox Container</div>
+        <div class="ext-list">
+          <span class="tag teal">/mnt/user-data/workspace/</span>
+          <span class="tag teal">/mnt/user-data/uploads/</span>
+          <span class="tag teal">/mnt/user-data/outputs/</span>
+          <span class="tag teal">/mnt/skills/public/</span>
+          <span class="tag teal">/mnt/skills/custom/</span>
+        </div>
+      </div>
+
+      <div class="ext-card">
+        <div class="ext-title"><span class="accent-amber">🤖</span> LLM Providers</div>
+        <div class="ext-list">
+          <span class="tag amber">OpenAI</span>
+          <span class="tag amber">Gemini</span>
+          <span class="tag amber">DeepSeek</span>
+          <span class="tag amber">Claude</span>
+          <span class="tag amber">Doubao</span>
+          <span class="tag amber">Kimi</span>
+          <span class="tag amber">OpenRouter</span>
+        </div>
+      </div>
+
+      <div class="ext-card">
+        <div class="ext-title"><span class="accent-pink">⚙️</span> Config & Storage</div>
+        <div class="ext-list">
+          <span class="tag pink">config.yaml</span>
+          <span class="tag pink">extensions_config.json</span>
+          <span class="tag pink">memory.json</span>
+          <span class="tag pink">MCP Servers</span>
+          <span class="tag pink">.env</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Message Flow -->
+  <div class="layer" style="margin-top: 36px;">
+    <div class="layer-label">Message Lifecycle — 一条消息的完整生命周期</div>
+    <div class="nginx-box" style="padding: 24px 32px;">
+      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; text-align: center;">
+        <div>
+          <div style="background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.25); border-radius: 10px; padding: 14px 8px; margin-bottom: 6px;">
+            <div style="font-size: 22px; margin-bottom: 4px;">💬</div>
+            <div style="font-size: 12px; font-weight: 700; color: #60a5fa;">Phase 1</div>
+            <div style="font-size: 11px; color: #7b8ab8; margin-top: 4px;">用户输入<br>→ Nginx 路由<br>→ LangGraph</div>
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25); border-radius: 10px; padding: 14px 8px; margin-bottom: 6px;">
+            <div style="font-size: 22px; margin-bottom: 4px;">🔧</div>
+            <div style="font-size: 12px; font-weight: 700; color: #a78bfa;">Phase 2</div>
+            <div style="font-size: 11px; color: #7b8ab8; margin-top: 4px;">Agent 初始化<br>模型 / 工具<br>系统 Prompt</div>
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(45,212,191,0.12); border: 1px solid rgba(45,212,191,0.25); border-radius: 10px; padding: 14px 8px; margin-bottom: 6px;">
+            <div style="font-size: 22px; margin-bottom: 4px;">⚡</div>
+            <div style="font-size: 12px; font-weight: 700; color: #2dd4bf;">Phase 3</div>
+            <div style="font-size: 11px; color: #7b8ab8; margin-top: 4px;">12 层中间件<br>依次执行<br>修改 State</div>
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.25); border-radius: 10px; padding: 14px 8px; margin-bottom: 6px;">
+            <div style="font-size: 22px; margin-bottom: 4px;">🧠</div>
+            <div style="font-size: 12px; font-weight: 700; color: #fbbf24;">Phase 4</div>
+            <div style="font-size: 11px; color: #7b8ab8; margin-top: 4px;">LLM 推理<br>工具调用循环<br>Sub-Agent 并行</div>
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.25); border-radius: 10px; padding: 14px 8px; margin-bottom: 6px;">
+            <div style="font-size: 22px; margin-bottom: 4px;">📡</div>
+            <div style="font-size: 12px; font-weight: 700; color: #4ade80;">Phase 5</div>
+            <div style="font-size: 11px; color: #7b8ab8; margin-top: 4px;">SSE 事件流<br>→ Nginx 透传<br>→ 浏览器渲染</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align: center; margin-top: 40px; color: #3b4a7a; font-size: 12px;">
+    DeerFlow 2.0 · Built on LangGraph + LangChain · Open Source under MIT License<br>
+    <span style="color: #2d3564;">github.com/bytedance/deer-flow</span>
+  </div>
+
+</div>
+
+</body>
+</html>
