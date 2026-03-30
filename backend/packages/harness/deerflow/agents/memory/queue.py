@@ -62,6 +62,8 @@ class MemoryUpdateQueue:
         with self._lock:
             # Check if this thread already has a pending update
             # If so, replace it with the newer one
+            # Dedup by thread_id only. Assumes thread_id is globally unique per user session.
+            # If two users share a thread_id (a bug upstream), the later enqueue wins.
             self._queue = [c for c in self._queue if c.thread_id != thread_id]
             self._queue.append(context)
 

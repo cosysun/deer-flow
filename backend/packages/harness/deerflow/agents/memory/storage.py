@@ -57,7 +57,7 @@ class MemoryStorage(abc.ABC):
 class FileMemoryStorage(MemoryStorage):
     """File-based memory storage provider."""
 
-    _USER_ID_INVALID_CHARS = re.compile(r"[/\\]|\.\.")
+    _USER_ID_VALID_CHARS = re.compile(r"^[A-Za-z0-9_\-\.@]+$")
 
     def __init__(self):
         """Initialize the file memory storage."""
@@ -77,11 +77,13 @@ class FileMemoryStorage(MemoryStorage):
             raise ValueError(f"Invalid agent name {agent_name!r}: names must match {AGENT_NAME_PATTERN.pattern}")
 
     def _validate_user_id(self, user_id: str) -> None:
-        """Validate user_id to prevent path traversal attacks."""
+        """Validate user_id to prevent path traversal and invalid filesystem paths."""
         if not user_id:
             raise ValueError("user_id must not be empty")
-        if self._USER_ID_INVALID_CHARS.search(user_id):
-            raise ValueError(f"Invalid user_id {user_id!r}: must not contain path separators or '..'")
+        if not self._USER_ID_VALID_CHARS.match(user_id):
+            raise ValueError(
+                f"Invalid user_id {user_id!r}: must only contain alphanumerics, hyphens, underscores, dots, or '@'"
+            )
 
     def _get_memory_file_path(self, agent_name: str | None = None, user_id: str | None = None) -> Path:
         """Get the path to the memory file.

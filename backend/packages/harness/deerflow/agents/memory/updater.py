@@ -59,6 +59,7 @@ def create_memory_fact(
     category: str = "context",
     confidence: float = 0.5,
     agent_name: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a new fact and persist the updated memory data."""
     normalized_content = content.strip()
@@ -68,7 +69,7 @@ def create_memory_fact(
     normalized_category = category.strip() or "context"
     validated_confidence = _validate_confidence(confidence)
     now = datetime.utcnow().isoformat() + "Z"
-    memory_data = get_memory_data(agent_name)
+    memory_data = get_memory_data(agent_name, user_id)
     updated_memory = dict(memory_data)
     facts = list(memory_data.get("facts", []))
     facts.append(
@@ -83,15 +84,15 @@ def create_memory_fact(
     )
     updated_memory["facts"] = facts
 
-    if not _save_memory_to_file(updated_memory, agent_name):
+    if not _save_memory_to_file(updated_memory, agent_name, user_id):
         raise OSError("Failed to save memory data after creating fact")
 
     return updated_memory
 
 
-def delete_memory_fact(fact_id: str, agent_name: str | None = None) -> dict[str, Any]:
+def delete_memory_fact(fact_id: str, agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
     """Delete a fact by its id and persist the updated memory data."""
-    memory_data = get_memory_data(agent_name)
+    memory_data = get_memory_data(agent_name, user_id)
     facts = memory_data.get("facts", [])
     updated_facts = [fact for fact in facts if fact.get("id") != fact_id]
     if len(updated_facts) == len(facts):
@@ -100,7 +101,7 @@ def delete_memory_fact(fact_id: str, agent_name: str | None = None) -> dict[str,
     updated_memory = dict(memory_data)
     updated_memory["facts"] = updated_facts
 
-    if not _save_memory_to_file(updated_memory, agent_name):
+    if not _save_memory_to_file(updated_memory, agent_name, user_id):
         raise OSError(f"Failed to save memory data after deleting fact '{fact_id}'")
 
     return updated_memory
@@ -112,9 +113,10 @@ def update_memory_fact(
     category: str | None = None,
     confidence: float | None = None,
     agent_name: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """Update an existing fact and persist the updated memory data."""
-    memory_data = get_memory_data(agent_name)
+    memory_data = get_memory_data(agent_name, user_id)
     updated_memory = dict(memory_data)
     updated_facts: list[dict[str, Any]] = []
     found = False
@@ -141,7 +143,7 @@ def update_memory_fact(
 
     updated_memory["facts"] = updated_facts
 
-    if not _save_memory_to_file(updated_memory, agent_name):
+    if not _save_memory_to_file(updated_memory, agent_name, user_id):
         raise OSError(f"Failed to save memory data after updating fact '{fact_id}'")
 
     return updated_memory
