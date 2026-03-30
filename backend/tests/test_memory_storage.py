@@ -201,3 +201,101 @@ class TestGetMemoryStorage:
         with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_class="builtins.dict")):
             storage = get_memory_storage()
             assert isinstance(storage, FileMemoryStorage)
+
+
+class TestFileMemoryStorageUserIsolation:
+    """Test per-user memory file path isolation."""
+
+    def test_get_memory_file_path_user_id(self, tmp_path):
+        """Should return per-user memory file path when user_id is provided."""
+        def mock_get_paths():
+            mock_paths = MagicMock()
+            mock_paths.base_dir = tmp_path
+            mock_paths.memory_file = tmp_path / "memory.json"
+            return mock_paths
+
+        with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
+            with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")):
+                storage = FileMemoryStorage()
+                path = storage._get_memory_file_path(user_id="user-abc")
+                assert path == tmp_path / "users" / "user-abc" / "memory.json"
+
+    def test_get_memory_file_path_agent_takes_priority_over_user(self, tmp_path):
+        """agent_name should take priority over user_id."""
+        def mock_get_paths():
+            mock_paths = MagicMock()
+            mock_paths.base_dir = tmp_path
+            mock_paths.agent_memory_file.return_value = tmp_path / "agents" / "my-agent" / "memory.json"
+            return mock_paths
+
+        with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
+            storage = FileMemoryStorage()
+            path = storage._get_memory_file_path(agent_name="my-agent", user_id="user-abc")
+            assert path == tmp_path / "agents" / "my-agent" / "memory.json"
+
+    def test_save_and_load_with_user_id(self, tmp_path):
+        """Should save and load memory for a specific user_id."""
+        def mock_get_paths():
+            mock_paths = MagicMock()
+            mock_paths.base_dir = tmp_path
+            mock_paths.memory_file = tmp_path / "memory.json"
+            return mock_paths
+
+        with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
+            with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")):
+                storage = FileMemoryStorage()
+                test_memory = create_empty_memory()
+                test_memory["facts"] = [{"id": "f1", "content": "user-abc fact", "category": "context",
+                                          "confidence": 0.9, "createdAt": "2026-01-01Z", "source": "test"}]
+                storage.save(test_memory, user_id="user-abc")
+
+                loaded = storage.load(user_id="user-abc")
+                assert loaded["facts"][0]["content"] == "user-abc fact"
+
+    def test_different_users_have_isolated_memory(self, tmp_path):
+        """Two users should have separate memory files that don't interfere."""
+        def mock_get_paths():
+            mock_paths = MagicMock()
+            mock_paths.base_dir = tmp_path
+            mock_paths.memory_file = tmp_path / "memory.json"
+            return mock_paths
+
+        with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
+            with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")):
+                storage = FileMemoryStorage()
+
+                mem_a = create_empty_memory()
+                mem_a["facts"] = [{"id": "f1", "content": "Alice fact", "category": "context",
+                                    "confidence": 0.9, "createdAt": "2026-01-01Z", "source": "t1"}]
+                storage.save(mem_a, user_id="user-alice")
+
+                mem_b = create_empty_memory()
+                mem_b["facts"] = [{"id": "f2", "content": "Bob fact", "category": "context",
+                                    "confidence": 0.9, "createdAt": "2026-01-01Z", "source": "t2"}]
+                storage.save(mem_b, user_id="user-bob")
+
+                loaded_a = storage.load(user_id="user-alice")
+                loaded_b = storage.load(user_id="user-bob")
+
+                assert loaded_a["facts"][0]["content"] == "Alice fact"
+                assert loaded_b["facts"][0]["content"] == "Bob fact"
+
+    def test_user_id_does_not_affect_global_memory(self, tmp_path):
+        """Memory saved with user_id should not affect global memory."""
+        def mock_get_paths():
+            mock_paths = MagicMock()
+            mock_paths.base_dir = tmp_path
+            mock_paths.memory_file = tmp_path / "memory.json"
+            return mock_paths
+
+        with patch("deerflow.agents.memory.storage.get_paths", side_effect=mock_get_paths):
+            with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_path="")):
+                storage = FileMemoryStorage()
+
+                mem_user = create_empty_memory()
+                mem_user["facts"] = [{"id": "f1", "content": "user fact", "category": "context",
+                                       "confidence": 0.9, "createdAt": "2026-01-01Z", "source": "t"}]
+                storage.save(mem_user, user_id="user-xyz")
+
+                global_mem = storage.load()  # no user_id
+                assert global_mem["facts"] == []

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from deerflow.agents.memory.updater import MemoryUpdater
 from deerflow.config.memory_config import get_memory_config
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ class ConversationContext:
     thread_id: str
     messages: list[Any]
     timestamp: datetime = field(default_factory=datetime.utcnow)
+    user_id: str | None = None
     agent_name: str | None = None
 
 
@@ -37,13 +39,14 @@ class MemoryUpdateQueue:
         self._timer: threading.Timer | None = None
         self._processing = False
 
-    def add(self, thread_id: str, messages: list[Any], agent_name: str | None = None) -> None:
+    def add(self, thread_id: str, messages: list[Any], agent_name: str | None = None, user_id: str | None = None) -> None:
         """Add a conversation to the update queue.
 
         Args:
             thread_id: The thread ID.
             messages: The conversation messages.
             agent_name: If provided, memory is stored per-agent. If None, uses global memory.
+            user_id: If provided, memory is stored per-user. If None, uses global memory.
         """
         config = get_memory_config()
         if not config.enabled:
@@ -53,11 +56,14 @@ class MemoryUpdateQueue:
             thread_id=thread_id,
             messages=messages,
             agent_name=agent_name,
+            user_id=user_id,
         )
 
         with self._lock:
             # Check if this thread already has a pending update
             # If so, replace it with the newer one
+            # Dedup by thread_id only. Assumes thread_id is globally unique per user session.
+            # If two users share a thread_id (a bug upstream), the later enqueue wins.
             self._queue = [c for c in self._queue if c.thread_id != thread_id]
             self._queue.append(context)
 
@@ -86,9 +92,6 @@ class MemoryUpdateQueue:
 
     def _process_queue(self) -> None:
         """Process all queued conversation contexts."""
-        # Import here to avoid circular dependency
-        from deerflow.agents.memory.updater import MemoryUpdater
-
         with self._lock:
             if self._processing:
                 # Already processing, reschedule
@@ -115,6 +118,7 @@ class MemoryUpdateQueue:
                         messages=context.messages,
                         thread_id=context.thread_id,
                         agent_name=context.agent_name,
+                        user_id=context.user_id,
                     )
                     if success:
                         logger.info("Memory updated successfully for thread %s", context.thread_id)

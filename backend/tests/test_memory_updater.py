@@ -474,6 +474,73 @@ class TestUpdateMemoryStructuredResponse:
 
         assert result is True
 
+
+class TestMemoryUpdaterUserIsolation:
+    """Test that MemoryUpdater passes user_id through to storage."""
+
+    def test_update_memory_passes_user_id_to_storage(self):
+        """update_memory should load and save with the given user_id."""
+        messages = [
+            MagicMock(type="human", content="Hello"),
+            MagicMock(type="ai", content="Hi there", tool_calls=[]),
+        ]
+
+        mock_storage = MagicMock()
+        mock_storage.load.return_value = _make_memory()
+        mock_storage.save.return_value = True
+
+        mock_model = MagicMock()
+        mock_model.invoke.return_value = MagicMock(
+            content='{"user": {}, "history": {}, "factsToRemove": [], "newFacts": []}'
+        )
+
+        with patch("deerflow.agents.memory.updater.get_memory_storage", return_value=mock_storage):
+            with patch("deerflow.agents.memory.updater.get_memory_config", return_value=_memory_config(enabled=True, fact_confidence_threshold=0.7, max_facts=100)):
+                updater = MemoryUpdater()
+                updater._get_model = lambda: mock_model
+                updater.update_memory(messages, user_id="user-123", thread_id="t1")
+
+        mock_storage.load.assert_called_once_with(agent_name=None, user_id="user-123")
+        mock_storage.save.assert_called_once()
+        _, call_kwargs = mock_storage.save.call_args
+        assert call_kwargs.get("user_id") == "user-123"
+        assert call_kwargs.get("agent_name") is None
+
+    def test_update_memory_without_user_id_uses_global(self):
+        """update_memory without user_id should use global storage (user_id=None)."""
+        messages = [
+            MagicMock(type="human", content="Hello"),
+            MagicMock(type="ai", content="Hi there", tool_calls=[]),
+        ]
+
+        mock_storage = MagicMock()
+        mock_storage.load.return_value = _make_memory()
+        mock_storage.save.return_value = True
+
+        mock_model = MagicMock()
+        mock_model.invoke.return_value = MagicMock(
+            content='{"user": {}, "history": {}, "factsToRemove": [], "newFacts": []}'
+        )
+
+        with patch("deerflow.agents.memory.updater.get_memory_storage", return_value=mock_storage):
+            with patch("deerflow.agents.memory.updater.get_memory_config", return_value=_memory_config(enabled=True, fact_confidence_threshold=0.7, max_facts=100)):
+                updater = MemoryUpdater()
+                updater._get_model = lambda: mock_model
+                updater.update_memory(messages)
+
+        mock_storage.load.assert_called_once_with(agent_name=None, user_id=None)
+
+
+class TestUpdateMemoryStructuredResponseListContent:
+    """test_list_content_response_parses moved to its own class after refactor."""
+
+    def _make_mock_model(self, content):
+        model = MagicMock()
+        response = MagicMock()
+        response.content = content
+        model.invoke.return_value = response
+        return model
+
     def test_list_content_response_parses(self):
         """LLM response as list-of-blocks should be extracted, not repr'd."""
         updater = MemoryUpdater()
